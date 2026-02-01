@@ -50,8 +50,8 @@ class TextAligner {
                 // If we've failed multiple times in a row, try to skip ahead in SRT to find next match
                 if (failedAttempts >= 3) {
                     console.warn(`Too many failed alignments. Trying to find next good match...`);
-                    // Skip ahead a bit in SRT and try to find where to resume
-                    srtIndex = Math.min(srtIndex + 10, srtSubtitles.length - 1);
+                    // Skip ahead a small amount in SRT and try to find where to resume
+                    srtIndex = Math.min(srtIndex + 5, srtSubtitles.length - 1);
                     failedAttempts = 0;
                 }
             }
@@ -148,9 +148,9 @@ class TextAligner {
      * @returns {Object} - Match information
      */
     findBestMatch(pdfWords, srtSubtitles, startIndex) {
-        const MIN_CONFIDENCE = 0.3; // Minimum threshold for accepting a match (increased from 0.25)
+        const MIN_CONFIDENCE = 0.2; // Minimum threshold for accepting a match
         const windowSize = Math.min(25, srtSubtitles.length - startIndex); // Search next 25 positions
-        const maxRangeSize = 8; // Maximum SRT subtitles per PDF segment (reduced from 15)
+        const maxRangeSize = 10; // Maximum SRT subtitles per PDF segment
         let bestMatch = null;
         let bestScore = 0;
 
@@ -163,10 +163,10 @@ class TextAligner {
 
                 const rawScore = this.calculateSimilarity(pdfWords, srtWords);
 
-                // Aggressive penalty for large ranges - prefer compact matches
+                // Penalty for large ranges - prefer compact matches
                 // Average should be ~3.5 SRT subtitles per PDF segment (986/278)
                 const rangeSize = j - i + 1;
-                const sizePenalty = rangeSize > 3 ? (1 - (rangeSize - 3) * 0.08) : 1;
+                const sizePenalty = rangeSize > 4 ? (1 - (rangeSize - 4) * 0.05) : 1;
                 const score = rawScore * sizePenalty;
 
                 if (score > bestScore) {

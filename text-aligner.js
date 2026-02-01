@@ -148,9 +148,9 @@ class TextAligner {
      * @returns {Object} - Match information
      */
     findBestMatch(pdfWords, srtSubtitles, startIndex) {
-        const MIN_CONFIDENCE = 0.25; // Minimum threshold for accepting a match
-        const windowSize = Math.min(30, srtSubtitles.length - startIndex); // Search next 30 positions
-        const maxRangeSize = 15; // Maximum SRT subtitles per PDF segment (reduced from 50)
+        const MIN_CONFIDENCE = 0.3; // Minimum threshold for accepting a match (increased from 0.25)
+        const windowSize = Math.min(25, srtSubtitles.length - startIndex); // Search next 25 positions
+        const maxRangeSize = 8; // Maximum SRT subtitles per PDF segment (reduced from 15)
         let bestMatch = null;
         let bestScore = 0;
 
@@ -163,9 +163,10 @@ class TextAligner {
 
                 const rawScore = this.calculateSimilarity(pdfWords, srtWords);
 
-                // Penalize very large ranges - prefer compact matches
+                // Aggressive penalty for large ranges - prefer compact matches
+                // Average should be ~3.5 SRT subtitles per PDF segment (986/278)
                 const rangeSize = j - i + 1;
-                const sizePenalty = rangeSize > 5 ? (1 - (rangeSize - 5) * 0.02) : 1;
+                const sizePenalty = rangeSize > 3 ? (1 - (rangeSize - 3) * 0.08) : 1;
                 const score = rawScore * sizePenalty;
 
                 if (score > bestScore) {
@@ -183,11 +184,11 @@ class TextAligner {
                 }
 
                 // If we found a very good match with reasonable size, stop searching
-                if (score > 0.8 && rangeSize <= 10) break;
+                if (score > 0.75 && rangeSize <= 6) break;
             }
 
             // If we found a very good match, stop searching
-            if (bestScore > 0.8) break;
+            if (bestScore > 0.75) break;
         }
 
         // Only return match if it meets minimum confidence threshold

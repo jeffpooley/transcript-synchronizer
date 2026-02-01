@@ -146,9 +146,16 @@ class SRTParser {
      */
     fixSpacing(text) {
         return text
-            // Fix spaces within words (e.g., "Ye s" → "Yes", "O kay" → "Okay")
-            // Match: capital letter + space + lowercase letters (common PDF extraction issue)
-            .replace(/\b([A-Z])\s+([a-z])/g, '$1$2')
+            // Fix spaces within words for capital letters - but NOT for standalone "I" or "A"
+            // Match: capital letter (except I and A) + space + lowercase letters
+            .replace(/\b([B-HJ-Z])\s+([a-z])/g, '$1$2')
+            // Fix lowercase letter + space + lowercase, but NOT for standalone "a" or "i"
+            // Match: lowercase (except a, i) + space + lowercase letters (2+)
+            .replace(/\b([b-hj-z])\s+([a-z]{2,})/g, '$1$2')
+            // Fix spaces around em dash
+            .replace(/\s+--\s+/g, '--')
+            .replace(/\s+--/g, '--')
+            .replace(/--\s+/g, '--')
             // Fix spaces before punctuation
             .replace(/\s+([.,;:!?])/g, '$1')
             // Fix spaces after opening quotes/brackets

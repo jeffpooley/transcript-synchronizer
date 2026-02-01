@@ -132,8 +132,33 @@ class SRTParser {
         // Also try to match any speaker label pattern at the start
         cleanText = cleanText.replace(/^[A-Z][A-Za-z\s\.]*?\s*:\s*/, '').trim();
 
+        // Fix spacing issues from PDF extraction
+        cleanText = this.fixSpacing(cleanText);
+
         // Return speaker label (no space before colon) followed by space and text on same line
         return `${speaker}: ${cleanText}`;
+    }
+
+    /**
+     * Fix spacing issues from PDF extraction
+     * @param {string} text - Text with spacing problems
+     * @returns {string} - Text with corrected spacing
+     */
+    fixSpacing(text) {
+        return text
+            // Fix spaces within words (e.g., "Ye s" → "Yes", "O kay" → "Okay")
+            // Match: capital letter + space + lowercase letters (common PDF extraction issue)
+            .replace(/\b([A-Z])\s+([a-z])/g, '$1$2')
+            // Fix spaces before punctuation
+            .replace(/\s+([.,;:!?])/g, '$1')
+            // Fix spaces after opening quotes/brackets
+            .replace(/(["\(\[])\s+/g, '$1')
+            // Fix spaces before closing quotes/brackets
+            .replace(/\s+(["'\)\]])/g, '$1')
+            // Fix multiple spaces to single space
+            .replace(/\s{2,}/g, ' ')
+            // Trim
+            .trim();
     }
 
     /**

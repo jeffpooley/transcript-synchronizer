@@ -372,8 +372,8 @@ class TextAligner {
             // No anchors at all - distribute evenly across total duration
             const avgDuration = totalDurationMs / totalSegments;
             const relativeIndex = pdfIndex - startIndex;
-            const startMs = relativeIndex * avgDuration;
-            const endMs = startMs + Math.min(3000, avgDuration * 0.8);
+            const startMs = Math.round(relativeIndex * avgDuration);
+            const endMs = Math.round(startMs + Math.min(3000, avgDuration * 0.8));
             return { startMs, endMs };
         }
 
@@ -399,7 +399,7 @@ class TextAligner {
             const timeDiff = nextAnchor.startMs - prevAnchor.endMs;
             const startMs = Math.round(prevAnchor.endMs + (timeDiff * ratio));
             const duration = Math.min(3000, timeDiff / segmentsBetween * 0.8); // Don't overlap
-            const endMs = startMs + duration;
+            const endMs = Math.round(startMs + duration);
 
             return { startMs, endMs };
         }
@@ -410,8 +410,8 @@ class TextAligner {
             const timeAvailable = nextAnchor.startMs;
             const avgDuration = timeAvailable / (nextAnchor.pdfIndex - startIndex);
             const relativeIndex = pdfIndex - startIndex;
-            const startMs = Math.max(0, relativeIndex * avgDuration);
-            const endMs = startMs + Math.min(3000, avgDuration * 0.8);
+            const startMs = Math.round(Math.max(0, relativeIndex * avgDuration));
+            const endMs = Math.round(startMs + Math.min(3000, avgDuration * 0.8));
 
             return { startMs, endMs };
         }
@@ -422,8 +422,8 @@ class TextAligner {
             const timeRemaining = totalDurationMs - prevAnchor.endMs;
             const avgDuration = timeRemaining / segmentsAfter;
             const position = pdfIndex - prevAnchor.pdfIndex;
-            const startMs = prevAnchor.endMs + (position * avgDuration);
-            const endMs = startMs + Math.min(3000, avgDuration * 0.8);
+            const startMs = Math.round(prevAnchor.endMs + (position * avgDuration));
+            const endMs = Math.round(startMs + Math.min(3000, avgDuration * 0.8));
 
             return { startMs, endMs };
         }

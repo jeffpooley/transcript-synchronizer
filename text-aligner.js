@@ -9,14 +9,12 @@ class TextAligner {
     }
 
     /**
-     * Main alignment function
+     * Main alignment function using two-pass anchor-based approach
      * @param {Array} pdfSegments - Speaker segments from corrected PDF
      * @param {Array} srtSubtitles - Parsed SRT subtitles with timestamps
-     * @returns {Array} - Aligned segments with timestamps
+     * @returns {Array} - All segments with timestamps (anchored or interpolated)
      */
     align(pdfSegments, srtSubtitles) {
-        const result = [];
-
         // Smart detection: Find where the actual transcript starts in the PDF
         const startIndex = this.findTranscriptStart(pdfSegments, srtSubtitles);
 
@@ -24,46 +22,78 @@ class TextAligner {
             console.log(`Skipping front matter: ignoring first ${startIndex} PDF segments`);
         }
 
+        // PASS 1: Find high-confidence anchor points
+        console.log('\n=== PASS 1: Finding anchor points ===');
+        const MIN_ANCHOR_CONFIDENCE = 0.45; // Lowered from 0.5 to get more anchors
+        const anchors = [];
         let srtIndex = 0;
-        let failedAttempts = 0;
 
-        // Start from the detected beginning of actual transcript
         for (let i = startIndex; i < pdfSegments.length; i++) {
+            if (srtIndex >= srtSubtitles.length - 5) break;
+
             const pdfSegment = pdfSegments[i];
+            const pdfText = this.cleanText(pdfSegment.text);
+            const pdfWords = pdfText.split(/\s+/);
 
-            console.log(`Processing PDF segment ${i}/${pdfSegments.length}: ${pdfSegment.speaker} (SRT index: ${srtIndex}/${srtSubtitles.length})`);
+            const match = this.findBestMatch(pdfWords, srtSubtitles, srtIndex);
 
-            const alignedSegment = this.alignSegment(
-                pdfSegment,
-                srtSubtitles,
-                srtIndex
-            );
-
-            if (alignedSegment) {
-                result.push(alignedSegment);
-                srtIndex = alignedSegment.lastSrtIndex + 1;
-                failedAttempts = 0;
+            if (match && match.confidence >= MIN_ANCHOR_CONFIDENCE) {
+                anchors.push({
+                    pdfIndex: i,
+                    speaker: pdfSegment.speaker,
+                    startMs: match.startMs,
+                    endMs: match.endMs,
+                    confidence: match.confidence
+                });
+                console.log(`  Anchor ${anchors.length}: PDF segment ${i} (${pdfSegment.speaker}) → SRT ${match.startIndex}-${match.endIndex} (confidence: ${match.confidence.toFixed(2)})`);
+                srtIndex = match.endIndex + 1;
             } else {
-                console.warn(`Failed to align PDF segment ${i} (${pdfSegment.speaker}): "${pdfSegment.text.substring(0, 100)}..."`);
-                failedAttempts++;
-
-                // If we've failed multiple times in a row, try to skip ahead in SRT to find next match
-                if (failedAttempts >= 3) {
-                    console.warn(`Too many failed alignments. Trying to find next good match...`);
-                    // Skip ahead a small amount in SRT and try to find where to resume
-                    srtIndex = Math.min(srtIndex + 5, srtSubtitles.length - 1);
-                    failedAttempts = 0;
-                }
-            }
-
-            // Safety check: if we've exhausted the SRT, stop
-            if (srtIndex >= srtSubtitles.length - 5) {
-                console.warn(`Approaching end of SRT at segment ${i}. Stopping alignment.`);
-                break;
+                // Move forward slowly to not skip content
+                srtIndex = Math.min(srtIndex + 1, srtSubtitles.length - 1);
             }
         }
 
-        console.log(`Alignment complete: ${result.length} segments aligned from ${pdfSegments.length} PDF segments`);
+        console.log(`\nFound ${anchors.length} anchor points with confidence >= ${MIN_ANCHOR_CONFIDENCE}`);
+
+        // PASS 2: Create timestamps for all segments (anchored or interpolated)
+        console.log('\n=== PASS 2: Interpolating timestamps ===');
+        const result = [];
+        let interpolatedCount = 0;
+
+        for (let i = startIndex; i < pdfSegments.length; i++) {
+            const pdfSegment = pdfSegments[i];
+            const anchor = anchors.find(a => a.pdfIndex === i);
+
+            if (anchor) {
+                // Use anchor timestamp
+                result.push({
+                    speaker: pdfSegment.speaker,
+                    text: pdfSegment.text,
+                    startTime: this.srtParser.msToTime(anchor.startMs),
+                    endTime: this.srtParser.msToTime(anchor.endMs),
+                    startMs: anchor.startMs,
+                    endMs: anchor.endMs
+                });
+            } else {
+                // Interpolate timestamp
+                const interpolated = this.interpolateTimestamp(i, anchors);
+                result.push({
+                    speaker: pdfSegment.speaker,
+                    text: pdfSegment.text,
+                    startTime: this.srtParser.msToTime(interpolated.startMs),
+                    endTime: this.srtParser.msToTime(interpolated.endMs),
+                    startMs: interpolated.startMs,
+                    endMs: interpolated.endMs
+                });
+                interpolatedCount++;
+            }
+        }
+
+        console.log(`\nAlignment complete:`);
+        console.log(`  - ${anchors.length} segments with matched timestamps`);
+        console.log(`  - ${interpolatedCount} segments with interpolated timestamps`);
+        console.log(`  - ${result.length} total segments in output`);
+
         return result;
     }
 
@@ -320,6 +350,73 @@ class TextAligner {
             .replace(/[^\w\s'"]/g, '')
             .toLowerCase()
             .trim();
+    }
+
+    /**
+     * Interpolate timestamp for a segment between anchor points
+     * @param {number} pdfIndex - Index of PDF segment to interpolate
+     * @param {Array} anchors - Array of anchor points {pdfIndex, startMs, endMs}
+     * @returns {Object} - {startMs, endMs}
+     */
+    interpolateTimestamp(pdfIndex, anchors) {
+        if (anchors.length === 0) {
+            // No anchors at all - space segments evenly starting at 0
+            const startMs = pdfIndex * 5000; // 5 seconds per segment
+            const endMs = startMs + 3000; // 3 second duration
+            return { startMs, endMs };
+        }
+
+        // Find previous and next anchors
+        let prevAnchor = null;
+        let nextAnchor = null;
+
+        for (const anchor of anchors) {
+            if (anchor.pdfIndex < pdfIndex) {
+                prevAnchor = anchor;
+            } else if (anchor.pdfIndex > pdfIndex && !nextAnchor) {
+                nextAnchor = anchor;
+                break;
+            }
+        }
+
+        // Case 1: Between two anchors - linear interpolation
+        if (prevAnchor && nextAnchor) {
+            const segmentsBetween = nextAnchor.pdfIndex - prevAnchor.pdfIndex;
+            const position = pdfIndex - prevAnchor.pdfIndex;
+            const ratio = position / segmentsBetween;
+
+            const timeDiff = nextAnchor.startMs - prevAnchor.endMs;
+            const startMs = Math.round(prevAnchor.endMs + (timeDiff * ratio));
+            const duration = Math.min(3000, timeDiff / segmentsBetween * 0.8); // Don't overlap
+            const endMs = startMs + duration;
+
+            return { startMs, endMs };
+        }
+
+        // Case 2: Before first anchor - extrapolate backward
+        if (!prevAnchor && nextAnchor) {
+            const segmentsBefore = nextAnchor.pdfIndex - pdfIndex;
+            const avgDuration = 4000; // Assume 4 seconds per segment
+            const startMs = Math.max(0, nextAnchor.startMs - (segmentsBefore * avgDuration));
+            const endMs = startMs + 3000;
+
+            return { startMs, endMs };
+        }
+
+        // Case 3: After last anchor - extrapolate forward
+        if (prevAnchor && !nextAnchor) {
+            const segmentsAfter = pdfIndex - prevAnchor.pdfIndex;
+            const avgDuration = 4000; // Assume 4 seconds per segment
+            const startMs = prevAnchor.endMs + (segmentsAfter * avgDuration);
+            const endMs = startMs + 3000;
+
+            return { startMs, endMs };
+        }
+
+        // Fallback (shouldn't reach here)
+        const startMs = pdfIndex * 5000;
+        const endMs = startMs + 3000;
+        return { startMs, endMs };
     }
 
     /**

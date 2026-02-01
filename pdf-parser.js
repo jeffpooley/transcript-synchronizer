@@ -1,38 +1,51 @@
 /**
- * PDF Parser Module
- * Extracts text from PDF files and identifies speaker segments
+ * PDF/TXT Parser Module
+ * Extracts text from PDF or TXT files and identifies speaker segments
  */
 
 class PDFParser {
     /**
-     * Extract text from a PDF file
-     * @param {File} file - The PDF file
+     * Extract text from a PDF or TXT file
+     * @param {File} file - The PDF or TXT file
      * @returns {Promise<Object>} - Extracted text and speaker segments
      */
     async extractText(file) {
         try {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            // Check file type
+            const fileName = file.name.toLowerCase();
+            const isTxt = fileName.endsWith('.txt');
 
             let fullText = '';
-            const pages = [];
+            let pages = [];
 
-            // Extract text from each page
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
+            if (isTxt) {
+                // Handle plain text file
+                fullText = await file.text();
+                pages = [fullText]; // Treat entire file as one "page"
+                console.log('Extracted text from TXT file');
+            } else {
+                // Handle PDF file
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-                // Combine text items with proper spacing
-                const pageText = textContent.items
-                    .map(item => item.str)
-                    .join(' ')
-                    .replace(/\s+/g, ' '); // Normalize whitespace
+                // Extract text from each page
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
 
-                pages.push(pageText);
-                fullText += pageText + '\n';
+                    // Combine text items with proper spacing
+                    const pageText = textContent.items
+                        .map(item => item.str)
+                        .join(' ')
+                        .replace(/\s+/g, ' '); // Normalize whitespace
+
+                    pages.push(pageText);
+                    fullText += pageText + '\n';
+                }
+                console.log('Extracted text from PDF file');
             }
 
-            // Parse speaker segments
+            // Parse speaker segments (same for both file types)
             const segments = this.parseSpeakerSegments(fullText);
 
             return {
@@ -42,7 +55,7 @@ class PDFParser {
                 success: true
             };
         } catch (error) {
-            console.error('Error extracting PDF text:', error);
+            console.error('Error extracting text:', error);
             return {
                 success: false,
                 error: error.message

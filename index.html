@@ -18,20 +18,20 @@
             <div class="instructions">
                 <h2>How it works</h2>
                 <ol>
-                    <li>Upload your <strong>corrected transcript PDF</strong> (with speaker labels like "John:" or "Interviewer:")</li>
+                    <li>Upload your <strong>corrected transcript</strong> (PDF or TXT with speaker labels like "John:" or "Interviewer:")</li>
                     <li>Upload your <strong>uncorrected SRT file</strong> (with timestamps from MacWhisper or similar)</li>
                     <li>Click "Process" to align and merge them</li>
                     <li>Download your new SRT file with corrected text and accurate timestamps</li>
                 </ol>
-                <p class="note"><strong>Note:</strong> Timestamps will only appear at speaker changes or every 2 minutes for long responses.</p>
+                <p class="note"><strong>Note:</strong> TXT files recommended for cleanest results. Export from Acrobat Pro: File → Export To → Text.</p>
             </div>
 
             <div class="upload-section">
                 <div class="upload-box" id="pdfUpload">
                     <div class="upload-icon">📄</div>
-                    <h3>Corrected Transcript (PDF)</h3>
+                    <h3>Corrected Transcript (PDF or TXT)</h3>
                     <p class="upload-text">Drag and drop or click to select</p>
-                    <input type="file" id="pdfFile" accept=".pdf" hidden>
+                    <input type="file" id="pdfFile" accept=".pdf,.txt" hidden>
                     <p class="file-name" id="pdfFileName"></p>
                 </div>
 

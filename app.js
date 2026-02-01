@@ -39,7 +39,7 @@ class TranscriptSynchronizer {
             this.pdfUploadBox,
             this.pdfFileInput,
             this.pdfFileName,
-            'pdf',
+            ['pdf', 'txt'],
             file => this.pdfFile = file
         );
 
@@ -91,8 +91,12 @@ class TranscriptSynchronizer {
     handleFileSelected(file, uploadBox, fileNameDisplay, fileType, callback) {
         const extension = file.name.split('.').pop().toLowerCase();
 
-        if (extension !== fileType) {
-            this.showError(`Please select a .${fileType} file`);
+        // Handle both single file type and array of file types
+        const allowedTypes = Array.isArray(fileType) ? fileType : [fileType];
+
+        if (!allowedTypes.includes(extension)) {
+            const typeList = allowedTypes.map(t => `.${t}`).join(' or ');
+            this.showError(`Please select a ${typeList} file`);
             return;
         }
 
@@ -116,15 +120,16 @@ class TranscriptSynchronizer {
             this.hideError();
             this.hideResult();
 
-            // Step 1: Extract text from PDF
-            console.log('Extracting text from PDF...');
+            // Step 1: Extract text from transcript file
+            const fileType = this.pdfFile.name.split('.').pop().toUpperCase();
+            console.log(`Extracting text from ${fileType}...`);
             const pdfResult = await this.pdfParser.extractText(this.pdfFile);
 
             if (!pdfResult.success) {
-                throw new Error(`PDF parsing failed: ${pdfResult.error}`);
+                throw new Error(`Transcript parsing failed: ${pdfResult.error}`);
             }
 
-            console.log(`Found ${pdfResult.segments.length} speaker segments in PDF`);
+            console.log(`Found ${pdfResult.segments.length} speaker segments in transcript`);
 
             // Step 2: Parse SRT file
             console.log('Parsing SRT file...');

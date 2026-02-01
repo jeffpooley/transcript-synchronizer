@@ -185,8 +185,8 @@ class TextAligner {
      */
     findBestMatch(pdfWords, srtSubtitles, startIndex) {
         const MIN_CONFIDENCE = 0.25; // Minimum threshold for accepting a match
-        const windowSize = Math.min(10, srtSubtitles.length - startIndex); // Search next 10 positions only
-        const maxRangeSize = 10; // Maximum SRT subtitles per PDF segment
+        const windowSize = Math.min(30, srtSubtitles.length - startIndex); // Search next 30 positions
+        const maxRangeSize = 30; // Maximum SRT subtitles per PDF segment (allows for longer speaker turns)
         let bestMatch = null;
         let bestScore = 0;
 
@@ -201,8 +201,9 @@ class TextAligner {
 
                 // Penalty for large ranges - prefer compact matches
                 // Average should be ~3.5 SRT subtitles per PDF segment (986/278)
+                // But allow for longer speaker turns (some can be 20-30 subtitles)
                 const rangeSize = j - i + 1;
-                const sizePenalty = rangeSize > 4 ? (1 - (rangeSize - 4) * 0.05) : 1;
+                const sizePenalty = rangeSize > 15 ? (1 - (rangeSize - 15) * 0.02) : 1;
                 const score = rawScore * sizePenalty;
 
                 if (score > bestScore) {
@@ -220,7 +221,7 @@ class TextAligner {
                 }
 
                 // If we found a very good match with reasonable size, stop searching
-                if (score > 0.75 && rangeSize <= 6) break;
+                if (score > 0.75 && rangeSize <= 20) break;
             }
 
             // If we found a very good match, stop searching

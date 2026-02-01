@@ -148,8 +148,8 @@ class TextAligner {
      * @returns {Object} - Match information
      */
     findBestMatch(pdfWords, srtSubtitles, startIndex) {
-        const MIN_CONFIDENCE = 0.2; // Minimum threshold for accepting a match
-        const windowSize = Math.min(25, srtSubtitles.length - startIndex); // Search next 25 positions
+        const MIN_CONFIDENCE = 0.25; // Minimum threshold for accepting a match
+        const windowSize = Math.min(10, srtSubtitles.length - startIndex); // Search next 10 positions only
         const maxRangeSize = 10; // Maximum SRT subtitles per PDF segment
         let bestMatch = null;
         let bestScore = 0;

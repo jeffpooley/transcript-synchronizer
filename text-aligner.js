@@ -446,10 +446,12 @@ class TextAligner {
     processSegments(segments, options = {}) {
         let processed = segments;
 
-        // Keep individual segments - each PDF speaker segment stays separate
-        // This ensures speaker changes are preserved
+        // First: Merge consecutive segments from the same speaker
+        // This handles cases where alignment created multiple segments
+        // for what should be a single speaker turn
+        processed = this.filterSpeakerChanges(processed);
 
-        // Split any segments longer than 2 minutes
+        // Second: Split any merged segments longer than 2 minutes
         processed = this.splitLongSegments(processed);
 
         return processed;

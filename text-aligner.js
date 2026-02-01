@@ -148,19 +148,25 @@ class TextAligner {
      * @returns {Object} - Match information
      */
     findBestMatch(pdfWords, srtSubtitles, startIndex) {
-        const MIN_CONFIDENCE = 0.2; // Minimum threshold for accepting a match
-        const windowSize = Math.min(100, srtSubtitles.length - startIndex); // Increased from 50 to 100
+        const MIN_CONFIDENCE = 0.25; // Minimum threshold for accepting a match
+        const windowSize = Math.min(30, srtSubtitles.length - startIndex); // Search next 30 positions
+        const maxRangeSize = 15; // Maximum SRT subtitles per PDF segment (reduced from 50)
         let bestMatch = null;
         let bestScore = 0;
 
         // Try different window sizes to find best match
         for (let i = startIndex; i < Math.min(startIndex + windowSize, srtSubtitles.length); i++) {
-            for (let j = i; j < Math.min(i + 50, srtSubtitles.length); j++) { // Increased from 30 to 50
+            for (let j = i; j < Math.min(i + maxRangeSize, srtSubtitles.length); j++) {
                 const srtRange = srtSubtitles.slice(i, j + 1);
                 const srtText = srtRange.map(s => s.text).join(' ');
                 const srtWords = this.cleanText(srtText).split(/\s+/);
 
-                const score = this.calculateSimilarity(pdfWords, srtWords);
+                const rawScore = this.calculateSimilarity(pdfWords, srtWords);
+
+                // Penalize very large ranges - prefer compact matches
+                const rangeSize = j - i + 1;
+                const sizePenalty = rangeSize > 5 ? (1 - (rangeSize - 5) * 0.02) : 1;
+                const score = rawScore * sizePenalty;
 
                 if (score > bestScore) {
                     bestScore = score;
@@ -171,20 +177,22 @@ class TextAligner {
                         endTime: srtRange[srtRange.length - 1].endTime,
                         startMs: srtRange[0].startMs,
                         endMs: srtRange[srtRange.length - 1].endMs,
-                        confidence: score
+                        confidence: rawScore, // Store original score
+                        rangeSize: rangeSize
                     };
                 }
 
-                // If we found a very good match, stop searching
-                if (score > 0.9) break;
+                // If we found a very good match with reasonable size, stop searching
+                if (score > 0.8 && rangeSize <= 10) break;
             }
 
             // If we found a very good match, stop searching
-            if (bestScore > 0.9) break;
+            if (bestScore > 0.8) break;
         }
 
         // Only return match if it meets minimum confidence threshold
         if (bestMatch && bestMatch.confidence >= MIN_CONFIDENCE) {
+            console.log(`  → Matched to SRT ${bestMatch.startIndex}-${bestMatch.endIndex} (${bestMatch.rangeSize} subtitles, confidence: ${bestMatch.confidence.toFixed(2)})`);
             return bestMatch;
         }
 

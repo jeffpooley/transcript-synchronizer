@@ -24,7 +24,7 @@ class TextAligner {
 
         // PASS 1: Find high-confidence anchor points
         console.log('\n=== PASS 1: Finding anchor points ===');
-        const MIN_ANCHOR_CONFIDENCE = 0.45; // Lowered from 0.5 to get more anchors
+        const MIN_ANCHOR_CONFIDENCE = 0.40; // Lowered to get more anchors for better timestamp accuracy
         const anchors = [];
         let srtIndex = 0;
 

@@ -290,10 +290,10 @@ class TextAligner {
                 const timePerChunk = duration / chunks.length;
 
                 chunks.forEach((chunkText, index) => {
-                    const startMs = segment.startMs + (timePerChunk * index);
+                    const startMs = Math.round(segment.startMs + (timePerChunk * index));
                     const endMs = index === chunks.length - 1
                         ? segment.endMs
-                        : segment.startMs + (timePerChunk * (index + 1));
+                        : Math.round(segment.startMs + (timePerChunk * (index + 1)));
 
                     result.push({
                         speaker: segment.speaker,
@@ -431,8 +431,8 @@ class TextAligner {
         // Fallback (shouldn't reach here)
         const avgDuration = totalDurationMs / totalSegments;
         const relativeIndex = pdfIndex - startIndex;
-        const startMs = relativeIndex * avgDuration;
-        const endMs = startMs + 3000;
+        const startMs = Math.round(relativeIndex * avgDuration);
+        const endMs = Math.round(startMs + 3000);
         return { startMs, endMs };
     }
 

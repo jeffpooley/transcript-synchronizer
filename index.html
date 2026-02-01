@@ -11,7 +11,7 @@
     <div class="container">
         <header>
             <h1>Transcript Synchronizer</h1>
-            <p class="subtitle">Merge timestamped SRT files with corrected PDF transcripts</p>
+            <p class="subtitle">Merge timestamped VTT files with corrected transcripts</p>
         </header>
 
         <main>
@@ -19,9 +19,9 @@
                 <h2>How it works</h2>
                 <ol>
                     <li>Upload your <strong>corrected transcript</strong> (PDF or TXT with speaker labels like "John:" or "Interviewer:")</li>
-                    <li>Upload your <strong>uncorrected SRT file</strong> (with timestamps from MacWhisper or similar)</li>
+                    <li>Upload your <strong>uncorrected VTT file</strong> (with timestamps from MacWhisper or similar)</li>
                     <li>Click "Process" to align and merge them</li>
-                    <li>Download your new SRT file with corrected text and accurate timestamps</li>
+                    <li>Download your new VTT file with corrected text and accurate timestamps</li>
                 </ol>
                 <p class="note"><strong>Note:</strong> TXT files recommended for cleanest results. Export from Acrobat Pro: File → Export To → Text.</p>
             </div>
@@ -37,9 +37,9 @@
 
                 <div class="upload-box" id="srtUpload">
                     <div class="upload-icon">⏱️</div>
-                    <h3>Timestamped SRT File</h3>
+                    <h3>Timestamped VTT File</h3>
                     <p class="upload-text">Drag and drop or click to select</p>
-                    <input type="file" id="srtFile" accept=".srt" hidden>
+                    <input type="file" id="srtFile" accept=".vtt" hidden>
                     <p class="file-name" id="srtFileName"></p>
                 </div>
             </div>

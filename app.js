@@ -47,7 +47,7 @@ class TranscriptSynchronizer {
             this.srtUploadBox,
             this.srtFileInput,
             this.srtFileName,
-            'srt',
+            'vtt',
             file => this.srtFile = file
         );
 
@@ -131,15 +131,15 @@ class TranscriptSynchronizer {
 
             console.log(`Found ${pdfResult.segments.length} speaker segments in transcript`);
 
-            // Step 2: Parse SRT file
-            console.log('Parsing SRT file...');
+            // Step 2: Parse VTT file
+            console.log('Parsing VTT file...');
             const srtResult = await this.srtParser.parse(this.srtFile);
 
             if (!srtResult.success) {
-                throw new Error(`SRT parsing failed: ${srtResult.error}`);
+                throw new Error(`VTT parsing failed: ${srtResult.error}`);
             }
 
-            console.log(`Found ${srtResult.subtitles.length} subtitles in SRT`);
+            console.log(`Found ${srtResult.subtitles.length} subtitles in VTT`);
 
             // Step 3: Align texts and transfer timestamps
             console.log('Aligning texts and transferring timestamps...');
@@ -149,7 +149,7 @@ class TranscriptSynchronizer {
             );
 
             if (alignedSegments.length === 0) {
-                throw new Error('Could not align the texts. Please ensure the PDF and SRT files are from the same interview.');
+                throw new Error('Could not align the texts. Please ensure the transcript and VTT files are from the same interview.');
             }
 
             console.log(`Aligned ${alignedSegments.length} segments`);
@@ -160,8 +160,8 @@ class TranscriptSynchronizer {
 
             console.log(`Final segments: ${processedSegments.length}`);
 
-            // Step 5: Generate SRT
-            console.log('Generating SRT file...');
+            // Step 5: Generate VTT
+            console.log('Generating VTT file...');
             this.resultSRT = this.srtParser.generate(processedSegments);
 
             // Store stats
@@ -196,10 +196,10 @@ class TranscriptSynchronizer {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
 
-        // Generate filename based on original SRT name
-        const originalName = this.srtFile.name.replace('.srt', '');
+        // Generate filename based on original VTT name
+        const originalName = this.srtFile.name.replace('.vtt', '');
         a.href = url;
-        a.download = `${originalName}_corrected.srt`;
+        a.download = `${originalName}_corrected.vtt`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -219,8 +219,8 @@ class TranscriptSynchronizer {
     showResult() {
         this.resultSection.classList.remove('hidden');
         this.statsDiv.innerHTML = `
-            <p><strong>Original SRT subtitles:</strong> ${this.stats.originalSubtitles}</p>
-            <p><strong>PDF speaker segments:</strong> ${this.stats.pdfSegments}</p>
+            <p><strong>Original VTT subtitles:</strong> ${this.stats.originalSubtitles}</p>
+            <p><strong>Transcript segments:</strong> ${this.stats.pdfSegments}</p>
             <p><strong>Final segments:</strong> ${this.stats.finalSegments}</p>
             <p><strong>Total duration:</strong> ${this.stats.duration}</p>
         `;

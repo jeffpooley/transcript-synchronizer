@@ -1,18 +1,22 @@
 /**
- * SRT Parser Module
- * Parses SRT subtitle files and generates new SRT files
+ * VTT/SRT Parser Module
+ * Parses VTT and SRT subtitle files and generates new VTT files
  */
 
 class SRTParser {
     /**
-     * Parse an SRT file into structured data
-     * @param {File} file - The SRT file
-     * @returns {Promise<Object>} - Parsed SRT data
+     * Parse a VTT or SRT file into structured data
+     * @param {File} file - The VTT or SRT file
+     * @returns {Promise<Object>} - Parsed subtitle data
      */
     async parse(file) {
         try {
             const text = await file.text();
-            const subtitles = this.parseSRT(text);
+
+            // Detect format (VTT starts with "WEBVTT")
+            const isVTT = text.trim().startsWith('WEBVTT');
+
+            const subtitles = isVTT ? this.parseVTT(text) : this.parseSRT(text);
 
             return {
                 subtitles,
@@ -20,7 +24,7 @@ class SRTParser {
                 success: true
             };
         } catch (error) {
-            console.error('Error parsing SRT file:', error);
+            console.error('Error parsing subtitle file:', error);
             return {
                 success: false,
                 error: error.message
@@ -64,6 +68,52 @@ class SRTParser {
     }
 
     /**
+     * Parse VTT text format into structured array
+     * @param {string} vttText - Raw VTT text
+     * @returns {Array} - Array of subtitle objects
+     */
+    parseVTT(vttText) {
+        const subtitles = [];
+        // Remove WEBVTT header and any header metadata
+        const content = vttText.replace(/^WEBVTT.*?\n\n/s, '');
+        const blocks = content.trim().split(/\n\s*\n/);
+
+        let index = 1;
+        for (const block of blocks) {
+            const lines = block.trim().split('\n');
+            if (lines.length < 2) continue;
+
+            // VTT format: optional cue identifier, then timestamp line, then text
+            // Skip cue identifier if present (doesn't contain -->)
+            let timeLineIndex = 0;
+            if (!lines[0].includes('-->')) {
+                timeLineIndex = 1;
+            }
+
+            if (timeLineIndex >= lines.length) continue;
+
+            const timeLine = lines[timeLineIndex];
+            const text = lines.slice(timeLineIndex + 1).join(' ');
+
+            // Parse timestamp line (format: 00:00:00.000 --> 00:00:05.000)
+            const timeMatch = timeLine.match(/(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})/);
+
+            if (timeMatch) {
+                subtitles.push({
+                    index: index++,
+                    startTime: timeMatch[1],
+                    endTime: timeMatch[2],
+                    startMs: this.vttTimeToMs(timeMatch[1]),
+                    endMs: this.vttTimeToMs(timeMatch[2]),
+                    text: text.trim()
+                });
+            }
+        }
+
+        return subtitles;
+    }
+
+    /**
      * Convert SRT timestamp to milliseconds
      * @param {string} time - Time in format HH:MM:SS,mmm
      * @returns {number} - Time in milliseconds
@@ -75,9 +125,20 @@ class SRTParser {
     }
 
     /**
-     * Convert milliseconds to SRT timestamp format
+     * Convert VTT timestamp to milliseconds
+     * @param {string} time - Time in format HH:MM:SS.mmm
+     * @returns {number} - Time in milliseconds
+     */
+    vttTimeToMs(time) {
+        const [hms, ms] = time.split('.');
+        const [hours, minutes, seconds] = hms.split(':').map(Number);
+        return (hours * 3600000) + (minutes * 60000) + (seconds * 1000) + Number(ms);
+    }
+
+    /**
+     * Convert milliseconds to VTT timestamp format
      * @param {number} ms - Time in milliseconds
-     * @returns {string} - Time in format HH:MM:SS,mmm
+     * @returns {string} - Time in format HH:MM:SS.mmm
      */
     msToTime(ms) {
         const hours = Math.floor(ms / 3600000);
@@ -85,7 +146,7 @@ class SRTParser {
         const seconds = Math.floor((ms % 60000) / 1000);
         const milliseconds = ms % 1000;
 
-        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')},${String(milliseconds).padStart(3, '0')}`;
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
     }
 
     /**
@@ -98,23 +159,22 @@ class SRTParser {
     }
 
     /**
-     * Generate SRT file content from segments
+     * Generate VTT file content from segments
      * @param {Array} segments - Array of segments with text, startTime, endTime
-     * @returns {string} - SRT formatted text
+     * @returns {string} - VTT formatted text
      */
     generate(segments) {
-        let srtContent = '';
+        let vttContent = 'WEBVTT\n\n';
 
         segments.forEach((segment, index) => {
-            srtContent += `${index + 1}\n`;
-            srtContent += `${segment.startTime} --> ${segment.endTime}\n`;
+            vttContent += `${segment.startTime} --> ${segment.endTime}\n`;
 
             // Format the text with proper speaker label formatting
             const formattedText = this.formatSpeakerLabel(segment.speaker, segment.text);
-            srtContent += `${formattedText}\n\n`;
+            vttContent += `${formattedText}\n\n`;
         });
 
-        return srtContent.trim();
+        return vttContent.trim();
     }
 
     /**

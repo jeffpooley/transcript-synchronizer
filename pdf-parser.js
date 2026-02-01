@@ -59,54 +59,49 @@ class PDFParser {
     parseSpeakerSegments(text) {
         const segments = [];
 
-        // Common patterns for speaker identification:
-        // "Name:" or "INTERVIEWER:" or "Q:" or "A:" etc.
-        const speakerPattern = /^([A-Z][A-Za-z\s\.]+:|[A-Z]+:|Q:|A:)/gm;
+        // Split by speaker patterns using a regex that captures the full speaker turn
+        // Match patterns like "Q1:" or "FUCHS:" or other single-word caps followed by colon
+        const speakerRegex = /\b(Q\d+|FUCHS|[A-Z][A-Z]+)\s*:\s*/g;
 
-        // Split text by potential speaker markers
-        const lines = text.split('\n');
-        let currentSpeaker = null;
-        let currentText = '';
+        let lastIndex = 0;
+        let currentMatch;
+        let previousSpeaker = null;
+        let previousStart = 0;
 
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (!trimmedLine) continue;
+        while ((currentMatch = speakerRegex.exec(text)) !== null) {
+            const speaker = currentMatch[1];
+            const matchStart = currentMatch.index;
+            const matchEnd = speakerRegex.lastIndex;
 
-            // Check if line starts with a speaker label
-            const speakerMatch = trimmedLine.match(/^([A-Z][A-Za-z\s\.]+?:|[A-Z]+?:|Q:|A:)\s*/);
-
-            if (speakerMatch) {
-                // Save previous segment if exists
-                if (currentSpeaker && currentText.trim()) {
+            // If we have a previous speaker, save their segment
+            if (previousSpeaker) {
+                const segmentText = text.substring(previousStart, matchStart).trim();
+                if (segmentText) {
                     segments.push({
-                        speaker: currentSpeaker,
-                        text: currentText.trim()
+                        speaker: previousSpeaker,
+                        text: segmentText
                     });
                 }
+            }
 
-                // Start new segment
-                currentSpeaker = speakerMatch[1].replace(':', '').trim();
-                currentText = trimmedLine.substring(speakerMatch[0].length);
-            } else {
-                // Continue current segment
-                currentText += ' ' + trimmedLine;
+            previousSpeaker = speaker;
+            previousStart = matchEnd;
+        }
+
+        // Add the final segment
+        if (previousSpeaker) {
+            const segmentText = text.substring(previousStart).trim();
+            if (segmentText) {
+                segments.push({
+                    speaker: previousSpeaker,
+                    text: segmentText
+                });
             }
         }
 
-        // Add final segment
-        if (currentSpeaker && currentText.trim()) {
-            segments.push({
-                speaker: currentSpeaker,
-                text: currentText.trim()
-            });
-        }
-
-        // If no speaker segments found, create one segment with all text
+        // If no speaker segments found, return empty (front matter only)
         if (segments.length === 0) {
-            segments.push({
-                speaker: 'Unknown',
-                text: text.trim()
-            });
+            console.warn('No speaker segments found in PDF');
         }
 
         return segments;

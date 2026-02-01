@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcript Synchronizer</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Transcript Synchronizer</h1>
+            <p class="subtitle">Merge timestamped SRT files with corrected PDF transcripts</p>
+        </header>
+
+        <main>
+            <div class="instructions">
+                <h2>How it works</h2>
+                <ol>
+                    <li>Upload your <strong>corrected transcript PDF</strong> (with speaker labels like "John:" or "Interviewer:")</li>
+                    <li>Upload your <strong>uncorrected SRT file</strong> (with timestamps from MacWhisper or similar)</li>
+                    <li>Click "Process" to align and merge them</li>
+                    <li>Download your new SRT file with corrected text and accurate timestamps</li>
+                </ol>
+                <p class="note"><strong>Note:</strong> Timestamps will only appear at speaker changes or every 2 minutes for long responses.</p>
+            </div>
+
+            <div class="upload-section">
+                <div class="upload-box" id="pdfUpload">
+                    <div class="upload-icon">📄</div>
+                    <h3>Corrected Transcript (PDF)</h3>
+                    <p class="upload-text">Drag and drop or click to select</p>
+                    <input type="file" id="pdfFile" accept=".pdf" hidden>
+                    <p class="file-name" id="pdfFileName"></p>
+                </div>
+
+                <div class="upload-box" id="srtUpload">
+                    <div class="upload-icon">⏱️</div>
+                    <h3>Timestamped SRT File</h3>
+                    <p class="upload-text">Drag and drop or click to select</p>
+                    <input type="file" id="srtFile" accept=".srt" hidden>
+                    <p class="file-name" id="srtFileName"></p>
+                </div>
+            </div>
+
+            <div class="action-section">
+                <button id="processBtn" class="btn-primary" disabled>Process Files</button>
+                <div id="progressBar" class="progress-bar hidden">
+                    <div class="progress-fill"></div>
+                    <p class="progress-text">Processing...</p>
+                </div>
+            </div>
+
+            <div id="resultSection" class="result-section hidden">
+                <div class="success-message">
+                    <div class="success-icon">✓</div>
+                    <h3>Processing Complete!</h3>
+                    <p>Your synchronized transcript is ready.</p>
+                    <button id="downloadBtn" class="btn-success">Download SRT File</button>
+                </div>
+                <div id="stats" class="stats"></div>
+            </div>
+
+            <div id="errorSection" class="error-section hidden">
+                <div class="error-message">
+                    <div class="error-icon">⚠️</div>
+                    <h3>Processing Error</h3>
+                    <p id="errorText"></p>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Built with Claude Code</p>
+        </footer>
+    </div>
+
+    <script>
+        // Configure PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <script src="srt-parser.js"></script>
+    <script src="pdf-parser.js"></script>
+    <script src="text-aligner.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

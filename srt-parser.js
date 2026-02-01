@@ -118,7 +118,7 @@ class SRTParser {
     }
 
     /**
-     * Format text with speaker label on its own line
+     * Format text with speaker label
      * @param {string} speaker - Speaker name
      * @param {string} text - Text content
      * @returns {string} - Properly formatted text
@@ -132,8 +132,8 @@ class SRTParser {
         // Also try to match any speaker label pattern at the start
         cleanText = cleanText.replace(/^[A-Z][A-Za-z\s\.]*?\s*:\s*/, '').trim();
 
-        // Return speaker label on its own line (no space before colon), followed by text
-        return `${speaker}:\n${cleanText}`;
+        // Return speaker label (no space before colon) followed by space and text on same line
+        return `${speaker}: ${cleanText}`;
     }
 
     /**

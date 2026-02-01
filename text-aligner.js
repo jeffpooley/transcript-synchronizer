@@ -25,10 +25,14 @@ class TextAligner {
         }
 
         let srtIndex = 0;
+        let failedAttempts = 0;
 
         // Start from the detected beginning of actual transcript
         for (let i = startIndex; i < pdfSegments.length; i++) {
             const pdfSegment = pdfSegments[i];
+
+            console.log(`Processing PDF segment ${i}/${pdfSegments.length}: ${pdfSegment.speaker} (SRT index: ${srtIndex}/${srtSubtitles.length})`);
+
             const alignedSegment = this.alignSegment(
                 pdfSegment,
                 srtSubtitles,
@@ -38,9 +42,28 @@ class TextAligner {
             if (alignedSegment) {
                 result.push(alignedSegment);
                 srtIndex = alignedSegment.lastSrtIndex + 1;
+                failedAttempts = 0;
+            } else {
+                console.warn(`Failed to align PDF segment ${i} (${pdfSegment.speaker}): "${pdfSegment.text.substring(0, 100)}..."`);
+                failedAttempts++;
+
+                // If we've failed multiple times in a row, try to skip ahead in SRT to find next match
+                if (failedAttempts >= 3) {
+                    console.warn(`Too many failed alignments. Trying to find next good match...`);
+                    // Skip ahead a bit in SRT and try to find where to resume
+                    srtIndex = Math.min(srtIndex + 10, srtSubtitles.length - 1);
+                    failedAttempts = 0;
+                }
+            }
+
+            // Safety check: if we've exhausted the SRT, stop
+            if (srtIndex >= srtSubtitles.length - 5) {
+                console.warn(`Approaching end of SRT at segment ${i}. Stopping alignment.`);
+                break;
             }
         }
 
+        console.log(`Alignment complete: ${result.length} segments aligned from ${pdfSegments.length} PDF segments`);
         return result;
     }
 
@@ -125,13 +148,14 @@ class TextAligner {
      * @returns {Object} - Match information
      */
     findBestMatch(pdfWords, srtSubtitles, startIndex) {
-        const windowSize = Math.min(50, srtSubtitles.length - startIndex);
+        const MIN_CONFIDENCE = 0.2; // Minimum threshold for accepting a match
+        const windowSize = Math.min(100, srtSubtitles.length - startIndex); // Increased from 50 to 100
         let bestMatch = null;
         let bestScore = 0;
 
         // Try different window sizes to find best match
         for (let i = startIndex; i < Math.min(startIndex + windowSize, srtSubtitles.length); i++) {
-            for (let j = i; j < Math.min(i + 30, srtSubtitles.length); j++) {
+            for (let j = i; j < Math.min(i + 50, srtSubtitles.length); j++) { // Increased from 30 to 50
                 const srtRange = srtSubtitles.slice(i, j + 1);
                 const srtText = srtRange.map(s => s.text).join(' ');
                 const srtWords = this.cleanText(srtText).split(/\s+/);
@@ -159,7 +183,12 @@ class TextAligner {
             if (bestScore > 0.9) break;
         }
 
-        return bestMatch;
+        // Only return match if it meets minimum confidence threshold
+        if (bestMatch && bestMatch.confidence >= MIN_CONFIDENCE) {
+            return bestMatch;
+        }
+
+        return null; // No good match found
     }
 
     /**

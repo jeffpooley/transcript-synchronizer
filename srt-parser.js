@@ -108,10 +108,32 @@ class SRTParser {
         segments.forEach((segment, index) => {
             srtContent += `${index + 1}\n`;
             srtContent += `${segment.startTime} --> ${segment.endTime}\n`;
-            srtContent += `${segment.text}\n\n`;
+
+            // Format the text with proper speaker label formatting
+            const formattedText = this.formatSpeakerLabel(segment.speaker, segment.text);
+            srtContent += `${formattedText}\n\n`;
         });
 
         return srtContent.trim();
+    }
+
+    /**
+     * Format text with speaker label on its own line
+     * @param {string} speaker - Speaker name
+     * @param {string} text - Text content
+     * @returns {string} - Properly formatted text
+     */
+    formatSpeakerLabel(speaker, text) {
+        // Remove any existing speaker label from the beginning of text
+        // Pattern matches "Name:" or "NAME:" at start, possibly with extra spaces
+        const speakerPattern = new RegExp(`^${speaker}\\s*:\\s*`, 'i');
+        let cleanText = text.replace(speakerPattern, '').trim();
+
+        // Also try to match any speaker label pattern at the start
+        cleanText = cleanText.replace(/^[A-Z][A-Za-z\s\.]*?\s*:\s*/, '').trim();
+
+        // Return speaker label on its own line (no space before colon), followed by text
+        return `${speaker}:\n${cleanText}`;
     }
 
     /**

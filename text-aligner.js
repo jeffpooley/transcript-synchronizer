@@ -16,9 +16,19 @@ class TextAligner {
      */
     align(pdfSegments, srtSubtitles) {
         const result = [];
+
+        // Smart detection: Find where the actual transcript starts in the PDF
+        const startIndex = this.findTranscriptStart(pdfSegments, srtSubtitles);
+
+        if (startIndex > 0) {
+            console.log(`Skipping front matter: ignoring first ${startIndex} PDF segments`);
+        }
+
         let srtIndex = 0;
 
-        for (const pdfSegment of pdfSegments) {
+        // Start from the detected beginning of actual transcript
+        for (let i = startIndex; i < pdfSegments.length; i++) {
+            const pdfSegment = pdfSegments[i];
             const alignedSegment = this.alignSegment(
                 pdfSegment,
                 srtSubtitles,
@@ -32,6 +42,39 @@ class TextAligner {
         }
 
         return result;
+    }
+
+    /**
+     * Find where the actual transcript starts in the PDF
+     * Skips front matter by finding the first segment that aligns well with SRT
+     * @param {Array} pdfSegments - Speaker segments from PDF
+     * @param {Array} srtSubtitles - Parsed SRT subtitles
+     * @returns {number} - Index of first segment that's part of the actual transcript
+     */
+    findTranscriptStart(pdfSegments, srtSubtitles) {
+        const MIN_CONFIDENCE = 0.3; // Threshold for considering a match valid
+        const SEARCH_LIMIT = Math.min(10, pdfSegments.length); // Only check first 10 segments
+
+        for (let i = 0; i < SEARCH_LIMIT; i++) {
+            const pdfSegment = pdfSegments[i];
+            const pdfText = this.cleanText(pdfSegment.text);
+            const pdfWords = pdfText.split(/\s+/);
+
+            // Skip very short segments (likely headers/titles)
+            if (pdfWords.length < 5) continue;
+
+            // Try to match this segment with the beginning of the SRT
+            const match = this.findBestMatch(pdfWords, srtSubtitles, 0);
+
+            if (match && match.confidence >= MIN_CONFIDENCE) {
+                console.log(`Found transcript start at PDF segment ${i} with confidence ${match.confidence.toFixed(2)}`);
+                return i;
+            }
+        }
+
+        // If no good match found, assume transcript starts at beginning
+        console.log('No front matter detected, starting from beginning');
+        return 0;
     }
 
     /**

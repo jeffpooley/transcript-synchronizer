@@ -52,23 +52,32 @@ class TextAligner {
      * @returns {number} - Index of first segment that's part of the actual transcript
      */
     findTranscriptStart(pdfSegments, srtSubtitles) {
-        const MIN_CONFIDENCE = 0.3; // Threshold for considering a match valid
-        const SEARCH_LIMIT = Math.min(10, pdfSegments.length); // Only check first 10 segments
+        const MIN_CONFIDENCE = 0.4; // Threshold for considering a match valid
+        const SEARCH_LIMIT = Math.min(20, pdfSegments.length); // Check more segments
+
+        // Get first few words from SRT to use as anchor
+        const firstSrtText = srtSubtitles.slice(0, 5).map(s => s.text).join(' ');
+        const firstSrtWords = this.cleanText(firstSrtText).split(/\s+/).slice(0, 10);
 
         for (let i = 0; i < SEARCH_LIMIT; i++) {
             const pdfSegment = pdfSegments[i];
             const pdfText = this.cleanText(pdfSegment.text);
             const pdfWords = pdfText.split(/\s+/);
 
-            // Skip very short segments (likely headers/titles)
-            if (pdfWords.length < 5) continue;
+            // Skip very short segments (likely headers/titles/metadata)
+            if (pdfWords.length < 5) {
+                console.log(`Skipping short segment ${i}: "${pdfSegment.text.substring(0, 50)}..."`);
+                continue;
+            }
 
-            // Try to match this segment with the beginning of the SRT
+            // Check if this segment contains words from the start of the SRT
             const match = this.findBestMatch(pdfWords, srtSubtitles, 0);
 
             if (match && match.confidence >= MIN_CONFIDENCE) {
-                console.log(`Found transcript start at PDF segment ${i} with confidence ${match.confidence.toFixed(2)}`);
+                console.log(`Found transcript start at PDF segment ${i} (speaker: ${pdfSegment.speaker}) with confidence ${match.confidence.toFixed(2)}`);
                 return i;
+            } else {
+                console.log(`Segment ${i} (speaker: ${pdfSegment.speaker}) confidence too low: ${match ? match.confidence.toFixed(2) : 'N/A'}`);
             }
         }
 
@@ -284,10 +293,10 @@ class TextAligner {
     processSegments(segments, options = {}) {
         let processed = segments;
 
-        // First, merge segments by speaker (only timestamps at speaker changes)
-        processed = this.filterSpeakerChanges(processed);
+        // Keep individual segments - each PDF speaker segment stays separate
+        // This ensures speaker changes are preserved
 
-        // Then split any segments longer than 2 minutes
+        // Split any segments longer than 2 minutes
         processed = this.splitLongSegments(processed);
 
         return processed;

@@ -57,6 +57,12 @@ class TextAligner {
 
         // PASS 2: Create timestamps for all segments (anchored or interpolated)
         console.log('\n=== PASS 2: Interpolating timestamps ===');
+
+        // Get total duration from VTT for proper interpolation
+        const totalDurationMs = srtSubtitles[srtSubtitles.length - 1].endMs;
+        const totalSegments = pdfSegments.length - startIndex;
+        console.log(`Total VTT duration: ${this.srtParser.msToTime(totalDurationMs)}`);
+
         const result = [];
         let interpolatedCount = 0;
 
@@ -75,8 +81,8 @@ class TextAligner {
                     endMs: anchor.endMs
                 });
             } else {
-                // Interpolate timestamp
-                const interpolated = this.interpolateTimestamp(i, anchors);
+                // Interpolate timestamp with total duration context
+                const interpolated = this.interpolateTimestamp(i, anchors, totalDurationMs, totalSegments, startIndex);
                 result.push({
                     speaker: pdfSegment.speaker,
                     text: pdfSegment.text,
@@ -356,13 +362,18 @@ class TextAligner {
      * Interpolate timestamp for a segment between anchor points
      * @param {number} pdfIndex - Index of PDF segment to interpolate
      * @param {Array} anchors - Array of anchor points {pdfIndex, startMs, endMs}
+     * @param {number} totalDurationMs - Total duration of VTT file
+     * @param {number} totalSegments - Total number of PDF segments
+     * @param {number} startIndex - Index where transcript starts
      * @returns {Object} - {startMs, endMs}
      */
-    interpolateTimestamp(pdfIndex, anchors) {
+    interpolateTimestamp(pdfIndex, anchors, totalDurationMs, totalSegments, startIndex) {
         if (anchors.length === 0) {
-            // No anchors at all - space segments evenly starting at 0
-            const startMs = pdfIndex * 5000; // 5 seconds per segment
-            const endMs = startMs + 3000; // 3 second duration
+            // No anchors at all - distribute evenly across total duration
+            const avgDuration = totalDurationMs / totalSegments;
+            const relativeIndex = pdfIndex - startIndex;
+            const startMs = relativeIndex * avgDuration;
+            const endMs = startMs + Math.min(3000, avgDuration * 0.8);
             return { startMs, endMs };
         }
 
@@ -396,25 +407,31 @@ class TextAligner {
         // Case 2: Before first anchor - extrapolate backward
         if (!prevAnchor && nextAnchor) {
             const segmentsBefore = nextAnchor.pdfIndex - pdfIndex;
-            const avgDuration = 4000; // Assume 4 seconds per segment
-            const startMs = Math.max(0, nextAnchor.startMs - (segmentsBefore * avgDuration));
-            const endMs = startMs + 3000;
+            const timeAvailable = nextAnchor.startMs;
+            const avgDuration = timeAvailable / (nextAnchor.pdfIndex - startIndex);
+            const relativeIndex = pdfIndex - startIndex;
+            const startMs = Math.max(0, relativeIndex * avgDuration);
+            const endMs = startMs + Math.min(3000, avgDuration * 0.8);
 
             return { startMs, endMs };
         }
 
-        // Case 3: After last anchor - extrapolate forward
+        // Case 3: After last anchor - distribute remaining time
         if (prevAnchor && !nextAnchor) {
-            const segmentsAfter = pdfIndex - prevAnchor.pdfIndex;
-            const avgDuration = 4000; // Assume 4 seconds per segment
-            const startMs = prevAnchor.endMs + (segmentsAfter * avgDuration);
-            const endMs = startMs + 3000;
+            const segmentsAfter = (startIndex + totalSegments - 1) - prevAnchor.pdfIndex;
+            const timeRemaining = totalDurationMs - prevAnchor.endMs;
+            const avgDuration = timeRemaining / segmentsAfter;
+            const position = pdfIndex - prevAnchor.pdfIndex;
+            const startMs = prevAnchor.endMs + (position * avgDuration);
+            const endMs = startMs + Math.min(3000, avgDuration * 0.8);
 
             return { startMs, endMs };
         }
 
         // Fallback (shouldn't reach here)
-        const startMs = pdfIndex * 5000;
+        const avgDuration = totalDurationMs / totalSegments;
+        const relativeIndex = pdfIndex - startIndex;
+        const startMs = relativeIndex * avgDuration;
         const endMs = startMs + 3000;
         return { startMs, endMs };
     }

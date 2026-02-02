@@ -116,13 +116,14 @@ class TranscriptSynchronizer {
 
     async process() {
         try {
+            console.log('🔴 PROCESSING STARTED - NEW CODE LOADED 🔴');
             this.showProgress();
             this.hideError();
             this.hideResult();
 
             // Step 1: Extract text from transcript file
             const fileType = this.pdfFile.name.split('.').pop().toUpperCase();
-            console.log(`Extracting text from ${fileType}...`);
+            console.log(`🔴🔴🔴 NEW CODE LOADED V3 🔴🔴🔴 Extracting text from ${fileType}...`);
             const pdfResult = await this.pdfParser.extractText(this.pdfFile);
 
             if (!pdfResult.success) {

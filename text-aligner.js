@@ -286,15 +286,16 @@ class TextAligner {
             if (duration <= maxDuration) {
                 result.push(segment);
             } else {
-                // Split into smaller chunks
-                const chunks = this.srtParser.splitTextIntoChunks(segment.text);
-                const timePerChunk = duration / chunks.length;
+                // Calculate how many ~2-minute chunks we need
+                const numChunks = Math.ceil(duration / maxDuration);
 
-                chunks.forEach((chunkText, index) => {
-                    const startMs = Math.round(segment.startMs + (timePerChunk * index));
-                    const endMs = index === chunks.length - 1
-                        ? segment.endMs
-                        : Math.round(segment.startMs + (timePerChunk * (index + 1)));
+                // Split text into that many chunks
+                const textChunks = this.splitTextIntoEqualChunks(segment.text, numChunks);
+
+                // Assign 2 minutes (or remaining time) to each chunk
+                textChunks.forEach((chunkText, index) => {
+                    const startMs = segment.startMs + (index * maxDuration);
+                    const endMs = Math.min(startMs + maxDuration, segment.endMs);
 
                     result.push({
                         speaker: segment.speaker,
@@ -312,6 +313,60 @@ class TextAligner {
     }
 
     /**
+     * Split text into N roughly equal chunks at sentence boundaries
+     * @param {string} text - Text to split
+     * @param {number} numChunks - Number of chunks to create
+     * @returns {Array} - Array of text chunks
+     */
+    splitTextIntoEqualChunks(text, numChunks) {
+        // Split into sentences first
+        const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+
+        if (sentences.length <= numChunks) {
+            // Fewer sentences than chunks needed, split by words
+            return this.splitTextByWords(text, numChunks);
+        }
+
+        // Distribute sentences evenly across chunks
+        const chunks = [];
+        const sentencesPerChunk = Math.ceil(sentences.length / numChunks);
+
+        for (let i = 0; i < numChunks; i++) {
+            const start = i * sentencesPerChunk;
+            const end = Math.min(start + sentencesPerChunk, sentences.length);
+            const chunk = sentences.slice(start, end).join('').trim();
+            if (chunk) {
+                chunks.push(chunk);
+            }
+        }
+
+        return chunks.length > 0 ? chunks : [text];
+    }
+
+    /**
+     * Split text into N chunks by word count
+     * @param {string} text - Text to split
+     * @param {number} numChunks - Number of chunks to create
+     * @returns {Array} - Array of text chunks
+     */
+    splitTextByWords(text, numChunks) {
+        const words = text.split(/\s+/);
+        const wordsPerChunk = Math.ceil(words.length / numChunks);
+        const chunks = [];
+
+        for (let i = 0; i < numChunks; i++) {
+            const start = i * wordsPerChunk;
+            const end = Math.min(start + wordsPerChunk, words.length);
+            const chunk = words.slice(start, end).join(' ').trim();
+            if (chunk) {
+                chunks.push(chunk);
+            }
+        }
+
+        return chunks.length > 0 ? chunks : [text];
+    }
+
+    /**
      * Filter segments to only include speaker changes
      * Merges consecutive segments from the same speaker
      * @param {Array} segments - All segments
@@ -320,6 +375,7 @@ class TextAligner {
     filterSpeakerChanges(segments) {
         const result = [];
         let currentSegment = null;
+        let mergeCount = 0;
 
         for (const segment of segments) {
             if (!currentSegment || currentSegment.speaker !== segment.speaker) {
@@ -330,9 +386,11 @@ class TextAligner {
                 currentSegment = { ...segment };
             } else {
                 // Same speaker, merge text and extend time
+                console.log(`  Merging consecutive ${segment.speaker} segment`);
                 currentSegment.text += ' ' + segment.text;
                 currentSegment.endTime = segment.endTime;
                 currentSegment.endMs = segment.endMs;
+                mergeCount++;
             }
         }
 
@@ -340,6 +398,8 @@ class TextAligner {
         if (currentSegment) {
             result.push(currentSegment);
         }
+
+        console.log(`  filterSpeakerChanges: merged ${mergeCount} segments (${segments.length} -> ${result.length})`);
 
         return result;
     }
@@ -446,15 +506,34 @@ class TextAligner {
     processSegments(segments, options = {}) {
         let processed = segments;
 
+        console.log(`\n=== PROCESSING SEGMENTS ===`);
+        console.log(`Input segments: ${segments.length}`);
+
+        // Log first 10 segments to see speaker pattern
+        console.log('First 10 segment speakers:');
+        segments.slice(0, 10).forEach((seg, i) => {
+            console.log(`  ${i}: ${seg.speaker} (${this.formatDuration(seg.endMs - seg.startMs)})`);
+        });
+
         // First: Merge consecutive segments from the same speaker
         // This handles cases where alignment created multiple segments
         // for what should be a single speaker turn
         processed = this.filterSpeakerChanges(processed);
+        console.log(`After filterSpeakerChanges: ${processed.length} segments`);
 
         // Second: Split any merged segments longer than 2 minutes
         processed = this.splitLongSegments(processed);
+        console.log(`After splitLongSegments: ${processed.length} segments`);
 
         return processed;
+    }
+
+    formatDuration(ms) {
+        const seconds = Math.floor(ms / 1000);
+        if (seconds < 60) return `${seconds}s`;
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes}m ${remainingSeconds}s`;
     }
 }
 

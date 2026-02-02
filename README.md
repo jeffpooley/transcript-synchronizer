@@ -80,10 +80,10 @@ open index.html
 
 - `index.html` - Main application interface
 - `styles.css` - Application styling
-- `app-v2.js` - Main application logic and UI handling
-- `pdf-parser-v2.js` - TXT/PDF text extraction and speaker detection
-- `srt-parser-v2.js` - VTT file parsing and generation
-- `text-aligner-v2.js` - Text alignment and timestamp transfer algorithms
+- `app.js` - Main application logic and UI handling
+- `transcript-parser.js` - TXT/PDF text extraction and speaker detection
+- `vtt-parser.js` - VTT file parsing and generation
+- `text-aligner.js` - Text alignment and timestamp transfer algorithms
 
 ## License
 

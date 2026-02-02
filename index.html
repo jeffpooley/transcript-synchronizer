@@ -57,7 +57,7 @@
                     <div class="success-icon">✓</div>
                     <h3>Processing Complete!</h3>
                     <p>Your synchronized transcript is ready.</p>
-                    <button id="downloadBtn" class="btn-success">Download SRT File</button>
+                    <button id="downloadBtn" class="btn-success">Download VTT File</button>
                 </div>
                 <div id="stats" class="stats"></div>
             </div>
@@ -80,9 +80,9 @@
         // Configure PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
-    <script src="srt-parser.js"></script>
-    <script src="pdf-parser.js"></script>
-    <script src="text-aligner.js"></script>
-    <script src="app.js"></script>
+    <script src="srt-parser-v2.js"></script>
+    <script src="pdf-parser-v2.js"></script>
+    <script src="text-aligner-v2.js"></script>
+    <script src="app-v2.js"></script>
 </body>
 </html>

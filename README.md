@@ -1,19 +1,19 @@
 # Transcript Synchronizer
 
-A web application for merging timestamped SRT files with corrected PDF transcripts to produce accurate, timestamped transcriptions.
+A web application for merging timestamped VTT files with corrected TXT/PDF transcripts to produce accurate, timestamped transcriptions.
 
 ## Problem Statement
 
 When transcribing oral history interviews:
-- Automated transcription (e.g., MacWhisper) produces SRT files with timestamps but uncorrected text
-- Manual corrections are made in PDF format without timestamps
+- Automated transcription (e.g., MacWhisper) produces VTT files with timestamps but uncorrected text
+- Manual corrections are made in TXT or PDF format without timestamps
 - Need to combine corrected text with original timestamps
 
 ## Solution
 
-This tool aligns the corrected transcript with the timestamped version and generates a new SRT file with:
-- Corrected text from the PDF
-- Accurate timestamps from the original SRT
+This tool aligns the corrected transcript with the timestamped version and generates a new VTT file with:
+- Corrected text from the TXT/PDF
+- Accurate timestamps from the original VTT
 - Timestamps only at speaker changes
 - Automatic splitting of segments longer than 2 minutes
 
@@ -30,18 +30,19 @@ This tool aligns the corrected transcript with the timestamped version and gener
 1. **Open the app**: Simply open `index.html` in a modern web browser (Chrome, Firefox, Safari, Edge)
 
 2. **Upload your files**:
-   - **Corrected Transcript (PDF)**: Your manually corrected transcript with speaker labels
-   - **Timestamped SRT**: The original SRT file from MacWhisper (or similar tool) with timestamps
+   - **Corrected Transcript (TXT or PDF)**: Your manually corrected transcript with speaker labels (TXT recommended for best results)
+   - **Timestamped VTT**: The original VTT file from MacWhisper (or similar tool) with timestamps
 
 3. **Process**: Click the "Process Files" button
 
-4. **Download**: Download your new, corrected SRT file with accurate timestamps
+4. **Download**: Download your new, corrected VTT file with accurate timestamps
 
 ## Requirements
 
 - Modern web browser with JavaScript enabled
-- PDF with speaker labels in format: "Speaker Name:" or "INTERVIEWER:"
-- SRT file with standard subtitle format
+- TXT or PDF with speaker labels in format: "Speaker Name:" or "INTERVIEWER:"
+- VTT file with standard WebVTT format
+- **Recommendation**: Export corrected transcripts as TXT from Adobe Acrobat Pro (File → Export To → Text) for cleanest results
 
 ## Technical Details
 
@@ -54,13 +55,13 @@ This tool aligns the corrected transcript with the timestamped version and gener
 
 ### How It Works
 
-1. Extracts text from the corrected PDF, identifying speaker segments
-2. Parses the timestamped SRT file into structured data
+1. Extracts text from the corrected TXT or PDF, identifying speaker segments
+2. Parses the timestamped VTT file into structured data
 3. Aligns the corrected text with the uncorrected text using similarity matching
-4. Transfers timestamps from the original SRT to the corrected text
+4. Transfers timestamps from the original VTT to the corrected text
 5. Merges consecutive segments from the same speaker
 6. Splits segments longer than 2 minutes at natural boundaries
-7. Generates a new SRT file ready for use
+7. Generates a new VTT file ready for use
 
 ## Development
 
@@ -79,10 +80,10 @@ open index.html
 
 - `index.html` - Main application interface
 - `styles.css` - Application styling
-- `app.js` - Main application logic and UI handling
-- `pdf-parser.js` - PDF text extraction and speaker detection
-- `srt-parser.js` - SRT file parsing and generation
-- `text-aligner.js` - Text alignment and timestamp transfer algorithms
+- `app-v2.js` - Main application logic and UI handling
+- `pdf-parser-v2.js` - TXT/PDF text extraction and speaker detection
+- `srt-parser-v2.js` - VTT file parsing and generation
+- `text-aligner-v2.js` - Text alignment and timestamp transfer algorithms
 
 ## License
 

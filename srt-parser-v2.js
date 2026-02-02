@@ -1,0 +1,296 @@
+/**
+ * VTT/SRT Parser Module
+ * Parses VTT and SRT subtitle files and generates new VTT files
+ */
+
+class SRTParser {
+    /**
+     * Parse a VTT or SRT file into structured data
+     * @param {File} file - The VTT or SRT file
+     * @returns {Promise<Object>} - Parsed subtitle data
+     */
+    async parse(file) {
+        try {
+            const text = await file.text();
+
+            // Detect format (VTT starts with "WEBVTT")
+            const isVTT = text.trim().startsWith('WEBVTT');
+
+            const subtitles = isVTT ? this.parseVTT(text) : this.parseSRT(text);
+
+            return {
+                subtitles,
+                fullText: this.extractFullText(subtitles),
+                success: true
+            };
+        } catch (error) {
+            console.error('Error parsing subtitle file:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    /**
+     * Parse SRT text format into structured array
+     * @param {string} srtText - Raw SRT text
+     * @returns {Array} - Array of subtitle objects
+     */
+    parseSRT(srtText) {
+        const subtitles = [];
+        const blocks = srtText.trim().split(/\n\s*\n/);
+
+        for (const block of blocks) {
+            const lines = block.trim().split('\n');
+            if (lines.length < 3) continue;
+
+            const index = parseInt(lines[0]);
+            const timeLine = lines[1];
+            const text = lines.slice(2).join(' ');
+
+            // Parse timestamp line (format: 00:00:00,000 --> 00:00:05,000)
+            const timeMatch = timeLine.match(/(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})/);
+
+            if (timeMatch) {
+                subtitles.push({
+                    index,
+                    startTime: timeMatch[1],
+                    endTime: timeMatch[2],
+                    startMs: this.timeToMs(timeMatch[1]),
+                    endMs: this.timeToMs(timeMatch[2]),
+                    text: text.trim()
+                });
+            }
+        }
+
+        return subtitles;
+    }
+
+    /**
+     * Parse VTT text format into structured array
+     * @param {string} vttText - Raw VTT text
+     * @returns {Array} - Array of subtitle objects
+     */
+    parseVTT(vttText) {
+        const subtitles = [];
+        // Remove WEBVTT header and any header metadata
+        const content = vttText.replace(/^WEBVTT.*?\n\n/s, '');
+        const blocks = content.trim().split(/\n\s*\n/);
+
+        let index = 1;
+        for (const block of blocks) {
+            const lines = block.trim().split('\n');
+            if (lines.length < 2) continue;
+
+            // VTT format: optional cue identifier, then timestamp line, then text
+            // Skip cue identifier if present (doesn't contain -->)
+            let timeLineIndex = 0;
+            if (!lines[0].includes('-->')) {
+                timeLineIndex = 1;
+            }
+
+            if (timeLineIndex >= lines.length) continue;
+
+            const timeLine = lines[timeLineIndex];
+            const text = lines.slice(timeLineIndex + 1).join(' ');
+
+            // Parse timestamp line (format: 00:00:00.000 --> 00:00:05.000)
+            const timeMatch = timeLine.match(/(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})/);
+
+            if (timeMatch) {
+                subtitles.push({
+                    index: index++,
+                    startTime: timeMatch[1],
+                    endTime: timeMatch[2],
+                    startMs: this.vttTimeToMs(timeMatch[1]),
+                    endMs: this.vttTimeToMs(timeMatch[2]),
+                    text: text.trim()
+                });
+            }
+        }
+
+        return subtitles;
+    }
+
+    /**
+     * Convert SRT timestamp to milliseconds
+     * @param {string} time - Time in format HH:MM:SS,mmm
+     * @returns {number} - Time in milliseconds
+     */
+    timeToMs(time) {
+        const [hms, ms] = time.split(',');
+        const [hours, minutes, seconds] = hms.split(':').map(Number);
+        return (hours * 3600000) + (minutes * 60000) + (seconds * 1000) + Number(ms);
+    }
+
+    /**
+     * Convert VTT timestamp to milliseconds
+     * @param {string} time - Time in format HH:MM:SS.mmm
+     * @returns {number} - Time in milliseconds
+     */
+    vttTimeToMs(time) {
+        const [hms, ms] = time.split('.');
+        const [hours, minutes, seconds] = hms.split(':').map(Number);
+        return (hours * 3600000) + (minutes * 60000) + (seconds * 1000) + Number(ms);
+    }
+
+    /**
+     * Convert milliseconds to VTT timestamp format
+     * @param {number} ms - Time in milliseconds
+     * @returns {string} - Time in format HH:MM:SS.mmm
+     */
+    msToTime(ms) {
+        const hours = Math.floor(ms / 3600000);
+        const minutes = Math.floor((ms % 3600000) / 60000);
+        const seconds = Math.floor((ms % 60000) / 1000);
+        const milliseconds = ms % 1000;
+
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
+    }
+
+    /**
+     * Extract full text from subtitle array (without timestamps)
+     * @param {Array} subtitles - Array of subtitle objects
+     * @returns {string} - Combined text
+     */
+    extractFullText(subtitles) {
+        return subtitles.map(sub => sub.text).join(' ');
+    }
+
+    /**
+     * Generate VTT file content from segments
+     * @param {Array} segments - Array of segments with text, startTime, endTime
+     * @returns {string} - VTT formatted text
+     */
+    generate(segments) {
+        let vttContent = 'WEBVTT\n\n';
+
+        segments.forEach((segment, index) => {
+            vttContent += `${segment.startTime} --> ${segment.endTime}\n`;
+
+            // Format the text with proper speaker label formatting
+            const formattedText = this.formatSpeakerLabel(segment.speaker, segment.text);
+            vttContent += `${formattedText}\n\n`;
+        });
+
+        return vttContent.trim();
+    }
+
+    /**
+     * Format text with speaker label
+     * @param {string} speaker - Speaker name
+     * @param {string} text - Text content
+     * @returns {string} - Properly formatted text
+     */
+    formatSpeakerLabel(speaker, text) {
+        // Remove any existing speaker label from the beginning of text
+        // Pattern matches "Name:" or "NAME:" at start, possibly with extra spaces
+        const speakerPattern = new RegExp(`^${speaker}\\s*:\\s*`, 'i');
+        let cleanText = text.replace(speakerPattern, '').trim();
+
+        // Also try to match any speaker label pattern at the start
+        cleanText = cleanText.replace(/^[A-Z][A-Za-z\s\.]*?\s*:\s*/, '').trim();
+
+        // Fix spacing issues from PDF extraction
+        cleanText = this.fixSpacing(cleanText);
+
+        // Return speaker label (no space before colon) followed by space and text on same line
+        return `${speaker}: ${cleanText}`;
+    }
+
+    /**
+     * Fix spacing issues from PDF extraction
+     * @param {string} text - Text with spacing problems
+     * @returns {string} - Text with corrected spacing
+     */
+    fixSpacing(text) {
+        return text
+            // Fix spaces within words for capital letters - but NOT for standalone "I" or "A"
+            // Match: capital letter (except I and A) + space + lowercase letters
+            .replace(/\b([B-HJ-Z])\s+([a-z])/g, '$1$2')
+            // Fix lowercase letter + space + lowercase, but NOT:
+            // - for standalone "a" or "i"
+            // - after apostrophes (contractions like "I'm sorry" should stay separate)
+            // Match: lowercase (except a, i) + space + lowercase letters (2+), NOT after apostrophe
+            .replace(/(?<!')\b([b-hj-z])\s+([a-z]{2,})/g, '$1$2')
+            // Fix spaces around em dash
+            .replace(/\s+--\s+/g, '--')
+            .replace(/\s+--/g, '--')
+            .replace(/--\s+/g, '--')
+            // Fix spaces before punctuation
+            .replace(/\s+([.,;:!?])/g, '$1')
+            // Fix spaces after opening quotes/brackets
+            .replace(/(["\(\[])\s+/g, '$1')
+            // Fix spaces before closing quotes/brackets
+            .replace(/\s+(["'\)\]])/g, '$1')
+            // Fix multiple spaces to single space
+            .replace(/\s{2,}/g, ' ')
+            // Trim
+            .trim();
+    }
+
+    /**
+     * Split a long text segment into smaller chunks at sentence boundaries
+     * @param {string} text - Text to split
+     * @param {number} maxLength - Maximum length per chunk
+     * @returns {Array} - Array of text chunks
+     */
+    splitTextIntoChunks(text, maxLength = 200) {
+        const chunks = [];
+        const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+
+        let currentChunk = '';
+
+        for (const sentence of sentences) {
+            if ((currentChunk + sentence).length > maxLength && currentChunk) {
+                chunks.push(currentChunk.trim());
+                currentChunk = sentence;
+            } else {
+                currentChunk += sentence;
+            }
+        }
+
+        if (currentChunk) {
+            chunks.push(currentChunk.trim());
+        }
+
+        // If no chunks created, split by words
+        if (chunks.length === 0) {
+            const words = text.split(' ');
+            currentChunk = '';
+
+            for (const word of words) {
+                if ((currentChunk + ' ' + word).length > maxLength && currentChunk) {
+                    chunks.push(currentChunk.trim());
+                    currentChunk = word;
+                } else {
+                    currentChunk += (currentChunk ? ' ' : '') + word;
+                }
+            }
+
+            if (currentChunk) {
+                chunks.push(currentChunk.trim());
+            }
+        }
+
+        return chunks.length > 0 ? chunks : [text];
+    }
+
+    /**
+     * Clean and normalize text for better matching
+     * @param {string} text - Text to clean
+     * @returns {string} - Cleaned text
+     */
+    cleanText(text) {
+        return text
+            .replace(/\s+/g, ' ')
+            .replace(/[""]/g, '"')
+            .replace(/['']/g, "'")
+            .toLowerCase()
+            .trim();
+    }
+}
+
+// Export for use in other modules
+window.SRTParser = SRTParser;
